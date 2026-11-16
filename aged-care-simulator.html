@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aged Care Cost Simulator (NSW, Australia)</title>
+<style>
+  :root { --bg: #f1f5f9; --card: #fff; --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; --brand: #0f766e; --brand-dark: #115e59; --brand-soft: #ccfbf1; --danger: #b91c1c; }
+  * { box-sizing: border-box; }
+  body { font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; background: var(--bg); color: var(--ink); line-height: 1.45; }
+  header.hero { background: linear-gradient(135deg, var(--brand-dark), var(--brand) 60%, #14b8a6); color: #fff; padding: 28px 32px 36px; }
+  header.hero h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.01em; }
+  header.hero p { margin: 4px 0 0; opacity: .85; font-size: 14px; }
+  main { max-width: 1280px; margin: -20px auto 40px; padding: 0 20px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 0 0 10px; color: var(--ink); }
+  fieldset { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 14px 18px 18px; margin: 0 0 14px; box-shadow: 0 1px 2px rgba(15,23,42,.05); }
+  legend { font-weight: 600; font-size: 13px; padding: 3px 12px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-dark); text-transform: uppercase; letter-spacing: .05em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px 16px; }
+  label { display: flex; flex-direction: column; font-size: 12px; font-weight: 500; color: var(--muted); gap: 5px; }
+  input, select { width: 100%; padding: 8px 10px; font: inherit; font-size: 14px; color: var(--ink); background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; transition: border-color .15s, box-shadow .15s; }
+  input:focus, select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(20,184,166,.25); background: #fff; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; }
+  .toolbar button { padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 500; border: 1px solid #cbd5e1; border-radius: 8px; background: var(--card); color: var(--ink); cursor: pointer; transition: background .15s, border-color .15s; }
+  .toolbar button:hover { background: #f0fdfa; border-color: var(--brand); color: var(--brand-dark); }
+  .toolbar button#resetParams { margin-left: auto; color: var(--muted); }
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 0 0 16px; }
+  .card { background: var(--card); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); border-left: 4px solid var(--brand); box-shadow: 0 1px 2px rgba(15,23,42,.05); font-size: 12px; color: var(--muted); }
+  .card b { display: block; font-size: 21px; font-weight: 700; color: var(--ink); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .panel { background: var(--card); padding: 16px 18px; border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 1px 2px rgba(15,23,42,.05); margin-bottom: 16px; overflow-x: auto; }
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 16px; }
+  .charts .panel { margin-bottom: 0; }
+  .charts pre, .panel pre.mermaid { margin: 0; display: flex; justify-content: center; }
+  .card.alert { border-left-color: var(--danger); background: #fef2f2; }
+  .card.alert b { color: var(--danger); }
+  td.neg { color: var(--danger); }
+  td.culprit { background: #fecaca !important; color: #991b1b; font-weight: 700; box-shadow: inset 0 0 0 2px #dc2626; }
+  tr.stopped td { border-bottom: 2px solid #dc2626; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  .note { font-size: 12px; color: var(--muted); }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { position: sticky; top: 0; background: #f8fafc; color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 10.5px; letter-spacing: .04em; }
+  th:first-child, td:first-child { text-align: left; font-weight: 600; }
+  tbody tr:nth-child(even) td { background: #f8fafc; }
+  tbody tr:first-child td { background: var(--brand-soft); font-weight: 600; }
+  tbody tr:hover td { background: #f0fdfa; }
+  .warn { color: var(--danger); font-weight: 600; background: #fee2e2; border-radius: 8px; padding: 0; margin-bottom: 14px; }
+  .warn:not(:empty) { padding: 10px 14px; }
+  .assump { font-size: 12.5px; color: #475569; line-height: 1.55; }
+  .assump ul { padding-left: 20px; margin: 8px 0 0; }
+  .assump li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <h1>Aged Care Cost Simulator</h1>
+  <p>NSW, Australia &middot; RAD, fees, retention and investments over time</p>
+</header>
+<main>
+
+<fieldset>
+  <legend>Daily fees ($ per day)</legend>
+  <div class="grid">
+    <label>Basic daily fee<input id="basicFee" type="number" value="68.93" step="0.01"></label>
+    <label>Hotelling daily fee<input id="hotelFee" type="number" value="22.15" step="0.01"></label>
+    <label>Higher Every Day Living Fee (EDLF)<input id="edlfFee" type="number" value="29.80" step="0.01"></label>
+    <label>Non-clinical care contribution (NCCC) daily fee<input id="ncccFee" type="number" value="109.45" step="0.01"></label>
+    <label>NCCC time cap (years)<input id="ncccYears" type="number" value="4" step="0.5"></label>
+    <label>NCCC value cap ($)<input id="ncccCap" type="number" value="130000" step="1000"></label>
+    <label>Fees debited from
+      <select id="feeSource">
+        <option value="rad" selected>RAD balance (all fees)</option>
+        <option value="dap">RAD balance (DAP only)</option>
+        <option value="inv">Investments</option>
+      </select></label>
+    <label>Simulation length (years)<input id="horizon" type="number" value="10" min="1" max="20" step="1"></label>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Assets &amp; income</legend>
+  <div class="grid">
+    <label>Home value ($)<input id="houseValue" type="number" value="1200000" step="10000"></label>
+    <label>Home growth (% p.a.)<input id="houseGrowth" type="number" value="3" step="0.5"></label>
+    <label>House sold at start of year<input id="saleYear" type="number" value="2" min="1" step="1"></label>
+    <label>Selling costs (% of sale price)<input id="sellCostPct" type="number" value="2" min="0" step="0.25"></label>
+    <label>Investments balance ($)<input id="investments" type="number" value="300000" step="10000"></label>
+    <label>Investment income (% p.a.)<input id="invRate" type="number" value="5" step="0.25"></label>
+    <label>Defined benefit income ($ p.a.)<input id="dbIncome" type="number" value="24000" step="1000"></label>
+    <label>Marginal tax rate on sales (%)<input id="taxRate" type="number" value="32" step="1"></label>
+    <label>Taxable share of sales (%)<input id="taxShare" type="number" value="100" min="0" max="100" step="5"></label>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Monthly expenses ($ per month)</legend>
+  <div class="grid">
+    <label>Non-housing expenses (e.g. medical insurance)<input id="monthlyLiving" type="number" value="600" min="0" step="50"></label>
+    <label>Housing expenses (e.g. insurance, rates, utilities)<input id="monthlyHousing" type="number" value="1200" min="0" step="50"></label>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Accommodation</legend>
+  <div class="grid">
+    <label>Room max RAD ($)<input id="maxRad" type="number" value="850000" step="10000"></label>
+    <label>RAD paid on entry ($)<input id="radPaid" type="number" value="200000" step="10000"></label>
+    <label>DAP daily fee rate / MPIR (% p.a.)<input id="mpir" type="number" value="7.97" step="0.01"></label>
+    <label>Retention rate (% p.a.)<input id="retRate" type="number" value="2" step="0.25"></label>
+    <label>Retention max years<input id="retYears" type="number" value="5" min="0" step="1"></label>
+  </div>
+</fieldset>
+
+<div class="toolbar">
+  <button id="dlCsv" type="button">Download results (CSV)</button>
+  <button id="dlJson" type="button">Download parameters (JSON)</button>
+  <button id="upJson" type="button">Upload parameters (JSON)</button>
+  <input id="upFile" type="file" accept=".json,application/json" hidden>
+  <button id="dlMd" type="button">Download report (Markdown)</button>
+  <button id="resetParams" type="button">Reset to defaults</button>
+  <span id="status" class="note"></span>
+</div>
+
+<div class="summary" id="summary"></div>
+<div id="warnings" class="warn"></div>
+
+<div class="charts">
+  <div class="panel"><h2>Total remaining assets (home + investments + refundable RAD)</h2><pre class="mermaid" id="c1"></pre>
+    <div class="legend">
+      <span><i style="background:#0f766e"></i>Total assets</span>
+      <span><i style="background:#f59e0b"></i>Investments</span>
+      <span><i style="background:#6366f1"></i>Home (if unsold)</span>
+      <span><i style="background:#64748b"></i>Refundable RAD</span>
+    </div></div>
+  <div class="panel"><h2>RAD outstanding (room max RAD less refundable RAD balance, year end)</h2><pre class="mermaid" id="c2"></pre></div>
+  <div class="panel"><h2>Total outgoing costs per year (excluding tax)</h2><pre class="mermaid" id="c3"></pre></div>
+  <div class="panel"><h2>Investments balance (year end)</h2><pre class="mermaid" id="c4"></pre></div>
+  <div class="panel"><h2>Tax paid per year (investment sales and defined benefit income)</h2><pre class="mermaid" id="c5"></pre></div>
+</div>
+
+<div class="panel"><h2>Key events</h2><pre class="mermaid" id="timeline"></pre></div>
+
+<div class="panel">
+  <h2>Assets bridge (how total assets move each year)</h2>
+  <table id="bridge"></table>
+</div>
+
+<div class="panel">
+  <h2>Yearly detail</h2>
+  <table id="table"></table>
+</div>
+
+<div class="panel assump">
+  <b>Assumptions</b>
+  <ul>
+    <li>The daily fees (basic, hotelling, higher Every Day Living Fee, NCCC and the DAP) are charged for 365 days a year, with no indexation. Home value grows at the rate above until sold.</li>
+    <li>Each year runs in this order: house sale, then the RAD is topped up to the maximum from the proceeds (start of year), investment income on the resulting balance, defined benefit income added, retention and daily fees drawn, remaining costs paid by selling investments, then the RAD is topped up back to the maximum from investments.</li>
+    <li>From the sale year the refundable RAD is kept at the room max RAD at the end of every year. The sale-year top-up comes from the house sale money (not taxed, topped up from investments if short). Later annual top-ups are paid by selling investments, grossed up for tax. If investments run short, fees are paid first and the RAD top-up takes what is left.</li>
+    <li>By default fees are debited from the refundable RAD balance (after retention), which reduces the refund but not the RAD outstanding. Once that balance is used up, the rest is paid from the investments pool. You can instead debit only the DAP from the RAD, or everything from investments.</li>
+    <li>Any RAD top-up and any fees not covered by the RAD are funded from the investments pool. Only the house sale money used to top the RAD up to the maximum in the sale year is untaxed. Any other money drawn from the investments pool (including leftover house sale money) is grossed up for tax: tax = amount sold &times; taxable share &times; marginal rate, charged in the year of sale.</li>
+    <li>The defined benefit income is taxable income. It is taxed at the marginal rate each year and the after-tax amount is paid into the investments pool. Investment income is not taxed in this model.</li>
+    <li>Accommodation: the RAD outstanding is the room max RAD less the refundable RAD balance, so retention and fees drawn from the RAD increase it. The daily accommodation payment (DAP) is charged at the MPIR rate on the outstanding amount at the start of the year, after any top-up. Topping the RAD up to the maximum reduces the DAP to zero.</li>
+    <li>Retention: a % of the current refundable RAD balance is deducted each year for up to the maximum years. It is a non-cash cost taken from the refundable balance.</li>
+    <li>NCCC stops once either the time cap or the value cap is reached. It is not means-tested here. The caps, the MPIR and the fee amounts are editable and should be checked against current legislation and Services Australia figures.</li>
+    <li>Monthly expenses are charged for 12 months a year with no indexation and are paid from the investments pool (they cannot be debited from the RAD). Housing expenses run until the house is sold and are zero from the sale year onward. Non-housing expenses continue for the whole period.</li>
+    <li>Selling the home attracts no tax (main residence). Selling costs are deducted from the proceeds and count as an outgoing cost. Stamp duty is paid by the buyer, so it is not modelled.</li>
+    <li>The simulation stops in the first year any balance goes negative (for example the investments cannot cover the fees and expenses). That year is the last row, the balance that went negative is highlighted in red, and the report names it.</li>
+    <li>This is a planning illustration, not financial advice.</li>
+  </ul>
+</div>
+
+</main>
+
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  themeVariables: {
+    fontFamily: 'Inter, system-ui, sans-serif',
+    primaryColor: '#ccfbf1', primaryBorderColor: '#0f766e', primaryTextColor: '#0f172a', lineColor: '#64748b',
+    xyChart: { plotColorPalette: '#0f766e, #f59e0b, #6366f1, #64748b', backgroundColor: 'transparent' }
+  }
+});
+
+const $ = id => document.getElementById(id);
+const num = id => +$(id).value || 0;
+const fmt = n => (Math.round(n) || 0).toLocaleString('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: 0 });
+let counter = 0;
+let current = null;
+
+function simulate(p) {
+  const DAYS = 365;
+  const eff = Math.min(Math.max(p.taxRate * p.taxShare / 10000, 0), 0.99);
+  let house = p.houseValue, inv = p.investments;
+  let taxFree = 0;   // part of the investments pool that came from the house sale: not taxed when drawn
+
+  // raise cash from the pool: house sale money first (no tax), then investments grossed up for tax
+  const raise = cash => {
+    const free = Math.min(taxFree, inv, cash);
+    const taxedCash = Math.min(cash - free, Math.max(inv - free, 0) * (1 - eff));
+    const soldTaxed = taxedCash / (1 - eff);
+    inv -= free + soldTaxed; taxFree = Math.max(taxFree - free, 0);
+    return { raised: free + taxedCash, tax: soldTaxed - taxedCash };
+  };
+  let radRefundable = Math.min(p.radPaid, p.maxRad);
+  let ncccCum = 0;
+  const rows = [], events = [{ year: 1, text: 'Enters aged care' }];
+  let stop = null;
+
+  // year 0: the initial values on entry
+  rows.push({ year: 0, radDebit: 0, basic: 0, hotel: 0, edlf: 0, nccc: 0, dap: 0, retention: 0, sellCost: 0, livingExp: 0, housingExp: 0,
+    tax: 0, totalCost: 0, interest: 0, radTopUp: 0, inv, homeValue: house, radRefundable,
+    radOutstanding: Math.max(p.maxRad - radRefundable, 0), assets: house + inv + radRefundable });
+  const zero = rows[0];
+  Object.assign(zero, { invOpen: 0, houseProceeds: 0, dbIncome: 0, dbTax: 0, radTax: 0, feeTax: 0, radOpen: 0, homeOpen: 0,
+    homeGrowth: 0, homeSold: 0, radOutOpen: 0, radBasic: 0, radHotel: 0, radNccc: 0, radDap: 0,
+    radEdlf: 0, invEdlf: 0, invBasic: 0, invHotel: 0, invNccc: 0, invDap: 0, feesFromInv: 0, bumpTax: 0, refillTax: 0, radBump: 0, radRefill: 0 });
+
+  for (let y = 1; y <= p.horizon; y++) {
+    const ev = [];
+    const prev = rows[rows.length - 1];
+    const invOpen = inv, radOpen = radRefundable, radOutOpen = Math.max(p.maxRad - radRefundable, 0);
+    let houseProceeds = 0;
+    let tax = 0, shortfall = 0, sellCost = 0;
+
+    // 1. house sale at start of year
+    if (y === p.saleYear && house > 0) {
+      const proceeds = house * Math.pow(1 + p.houseGrowth / 100, y - 1);
+      sellCost = proceeds * p.sellCostPct / 100;
+      houseProceeds = proceeds;
+      inv += proceeds - sellCost; taxFree += proceeds - sellCost; house = 0;
+      ev.push('House sold for ' + fmt(proceeds));
+    }
+
+    // 2. from the sale year, house proceeds first bump the RAD up to the maximum (house sale money is not taxed)
+    let radBump = 0;
+    if (y >= p.saleYear && radRefundable < p.maxRad - 0.005) {
+      const target = p.maxRad - radRefundable;
+      if (target > 0.005) {
+        const bump = raise(target);
+        radBump = bump.raised; tax += bump.tax;
+        radRefundable += radBump;
+        ev.push(radBump >= target - 0.5 ? 'RAD topped up to ' + fmt(p.maxRad) : 'RAD part topped up (' + fmt(radBump) + ')');
+      }
+    }
+    taxFree = 0;   // any house sale money left over is now part of the investments and is taxed when drawn
+    const bumpTax = tax;
+    const radOutstanding = Math.max(p.maxRad - radRefundable, 0);   // unpaid part of the room price at the start of the year
+
+    // 3. fees for the year
+    const basic = p.basicFee * DAYS;
+    const hotel = p.hotelFee * DAYS;
+    const edlf = p.edlfFee * DAYS;
+    const dap = radOutstanding * p.mpir / 100;
+    const ncccDays = Math.min(Math.max(p.ncccYears - (y - 1), 0), 1) * DAYS;
+    const ncccBefore = ncccCum;
+    const nccc = Math.max(Math.min(p.ncccFee * ncccDays, p.ncccCap - ncccCum), 0);
+    ncccCum += nccc;
+    const prevNccc = rows.length ? rows[rows.length - 1].nccc : 0;
+    if (nccc > 0 && ncccCum >= p.ncccCap - 0.5 && ncccBefore < p.ncccCap - 0.5) ev.push('NCCC value cap reached');
+    else if (prevNccc > 0 && nccc === 0) ev.push('NCCC stops');
+    else if (nccc > 0 && ncccDays < DAYS) ev.push('NCCC time cap reached');
+    const retention = y <= p.retYears ? radRefundable * p.retRate / 100 : 0;
+    radRefundable -= retention;
+
+    // debit fees from the refundable RAD balance (any remainder falls back to investments)
+    const livingExp = p.monthlyLiving * 12;
+    const housingExp = y < p.saleYear ? p.monthlyHousing * 12 : 0;   // stops once the house is sold
+    const totalFees = basic + hotel + edlf + nccc + dap;
+    const radEligible = p.feeSource === 'rad' ? totalFees : p.feeSource === 'dap' ? dap : 0;
+    const radDebit = Math.min(radEligible, Math.max(radRefundable, 0));
+    radRefundable -= radDebit;
+    // allocate the RAD debit across fee types in order, the rest falls to investments
+    const feeList = [['Basic', basic], ['Hotel', hotel], ['Edlf', edlf], ['Nccc', nccc], ['Dap', dap]];
+    let radLeft = radDebit;
+    const alloc = {};
+    for (const [k, v] of feeList) {
+      const t = p.feeSource === 'dap' && k !== 'Dap' ? 0 : Math.min(v, radLeft);
+      alloc['rad' + k] = t; alloc['inv' + k] = v - t; radLeft -= t;
+    }
+
+    // 4. income
+    const interest = inv * p.invRate / 100;
+    const dbTax = p.dbIncome * p.taxRate / 100;   // defined benefit income is taxable income at the marginal rate
+    tax += dbTax;
+    const pool = inv + interest + p.dbIncome - dbTax;
+
+    // 5. fund remaining cash fees by selling investments (grossed up for tax)
+    const cashNeeded = totalFees - radDebit + livingExp + housingExp;
+    inv = pool;
+    const feeSale = raise(cashNeeded);
+    shortfall = cashNeeded - feeSale.raised;
+    const feeTax = feeSale.tax;
+    tax += feeTax;
+
+    // 6. once the RAD is at the maximum, top it back up after the fee draw down (grossed up for tax)
+    let radRefill = 0, refillTax = 0;
+    if (y >= p.saleYear) {
+      const need = p.maxRad - radRefundable;
+      if (need > 0.005) {
+        const refill = raise(need);
+        radRefill = refill.raised; refillTax = refill.tax; radRefundable += radRefill; tax += refillTax;
+      }
+    }
+    inv -= shortfall;   // anything the investments could not cover leaves the balance negative, which stops the simulation
+    const radTax = bumpTax + refillTax;
+    const radTopUp = radBump + radRefill;
+
+    const homeValue = y < p.saleYear ? p.houseValue * Math.pow(1 + p.houseGrowth / 100, y) : 0;
+
+    const homeOpen = prev.homeValue;
+    const homeSold = houseProceeds;
+    const totalCost = basic + hotel + edlf + nccc + dap + retention + sellCost + livingExp + housingExp;
+    rows.push({ year: y, radDebit, basic, hotel, edlf, nccc, dap, retention, sellCost, livingExp, housingExp, tax, totalCost, interest, radTopUp,
+      inv, homeValue, radRefundable, radOutstanding: Math.max(p.maxRad - radRefundable, 0),
+      assets: homeValue + inv + radRefundable,
+      invOpen, houseProceeds, dbIncome: p.dbIncome, dbTax, radTax, feeTax, radOpen, homeOpen,
+      homeGrowth: homeValue - homeOpen + homeSold, homeSold, bumpTax, refillTax, radBump, radRefill, radOutOpen, ...alloc, feesFromInv: cashNeeded });
+    ev.forEach(t => events.push({ year: y, text: t }));
+
+    // stop as soon as any tracked balance goes negative
+    const neg = [['Investments', 'inv', inv], ['Refundable RAD', 'radRefundable', radRefundable], ['Home', 'homeValue', homeValue]].find(a => a[2] < -0.5);
+    if (neg) {
+      rows[rows.length - 1].stopped = neg[1];
+      stop = { year: y, account: neg[0], key: neg[1], balance: neg[2] };
+      events.push({ year: y, text: 'Simulation stopped: ' + neg[0] + ' balance went negative (' + fmt(neg[2]) + ')' });
+      break;
+    }
+  }
+  return { rows, events, stop };
+}
+
+const chartDef = (title, labels, series, yLabel) => {
+  const vals = series.flatMap(s => s.data);
+  const top = Math.max(1000, Math.ceil(Math.max(...vals) * 1.1 / 1000) * 1000);
+  const bottom = Math.min(0, Math.floor(Math.min(...vals) / 1000) * 1000);
+  return `xychart-beta
+    title "${title}"
+    x-axis "Year" [${labels.join(', ')}]
+    y-axis "${yLabel}" ${bottom} --> ${top}
+` + series.map(s => `    ${s.type} [${s.data.map(Math.round).join(', ')}]`).join('\n');
+};
+
+async function draw(id, def) {
+  try {
+    const { svg } = await mermaid.render('m' + (counter++), def);
+    $(id).innerHTML = svg;
+  } catch (e) { $(id).textContent = 'Diagram error: ' + e.message; }
+}
+
+const cols = [['Year', 'year', v => v], ['Home value', 'homeValue', fmt], ['Investments', 'inv', fmt],
+  ['Refundable RAD', 'radRefundable', fmt], ['Total assets', 'assets', fmt], ['RAD outstanding', 'radOutstanding', fmt],
+  ['Basic daily fee', 'basic', fmt], ['Hotelling daily fee', 'hotel', fmt], ['Higher Every Day Living Fee (EDLF)', 'edlf', fmt], ['NCCC daily fee', 'nccc', fmt], ['DAP daily fee', 'dap', fmt],
+  ['Retention', 'retention', fmt], ['Selling costs', 'sellCost', fmt], ['Non-housing exp.', 'livingExp', fmt], ['Housing exp.', 'housingExp', fmt],
+  ['Daily fees from RAD', 'radDebit', fmt], ['Total costs (ex tax)', 'totalCost', fmt], ['Tax', 'tax', fmt]];
+// year-by-year bridge from opening to closing total assets
+const bridgeCols = [['Year', 'year'], ['Opening assets', 'open'], ['+ Investment income', 'interest'], ['+ Defined benefit income', 'dbIncome'],
+  ['+ Home growth', 'homeGrowth'], ['- Total outgoing costs', 'totalCost'], ['- Tax (sales and defined benefit income)', 'tax'], ['Closing assets', 'assets'], ['Check (should be 0)', 'check']];
+function bridgeRows(rows) {
+  return rows.slice(1).map((r, i) => {
+    const open = rows[i].assets;
+    return { ...r, open, check: r.assets - (open + r.interest + r.dbIncome + r.homeGrowth - r.totalCost - r.tax) };
+  });
+}
+
+const extraCsvCols = [['Investment income', 'interest'], ['RAD top-up paid', 'radTopUp'], ['Defined benefit income', 'dbIncome'], ['Tax on defined benefit income', 'dbTax'],
+  ['Investments opening', 'invOpen'], ['House sale proceeds', 'houseProceeds'], ['Tax on RAD top-up sales', 'radTax'],
+  ['Tax on fee sales', 'feeTax'], ['RAD opening', 'radOpen'], ['Home opening', 'homeOpen'],
+  ['Home growth', 'homeGrowth'], ['Home sold', 'homeSold']];
+
+async function render() {
+  const p = {
+    houseValue: num('houseValue'), houseGrowth: num('houseGrowth'), saleYear: Math.max(1, Math.round(num('saleYear'))),
+    investments: num('investments'), invRate: num('invRate'),
+    dbIncome: num('dbIncome'), taxRate: num('taxRate'), taxShare: num('taxShare'),
+    maxRad: num('maxRad'), radPaid: num('radPaid'), mpir: num('mpir'), retRate: num('retRate'), retYears: num('retYears'),
+    basicFee: num('basicFee'), hotelFee: num('hotelFee'), edlfFee: num('edlfFee'), ncccFee: num('ncccFee'), ncccYears: num('ncccYears'),
+    ncccCap: num('ncccCap'), sellCostPct: num('sellCostPct'), monthlyLiving: num('monthlyLiving'), monthlyHousing: num('monthlyHousing'), feeSource: $('feeSource').value, horizon: Math.min(Math.max(Math.round(num('horizon')), 1), 20)
+  };
+  const { rows, events, stop } = simulate(p);
+  current = { p, rows, events, stop };
+  const labels = rows.map(r => r.year);
+  const last = rows[rows.length - 1];
+  const sum = k => rows.reduce((a, r) => a + r[k], 0);
+
+  $('summary').innerHTML = `
+    <div class="card">Total outgoing costs (ex tax)<b>${fmt(sum('totalCost'))}</b></div>
+    <div class="card">Daily fees (basic, hotelling, EDLF, NCCC, DAP)<b>${fmt(sum('basic') + sum('hotel') + sum('edlf') + sum('nccc') + sum('dap'))}</b></div>
+    <div class="card">Retention paid<b>${fmt(sum('retention'))}</b></div>
+    <div class="card">Living &amp; housing expenses<b>${fmt(sum('livingExp') + sum('housingExp'))}</b></div>
+    <div class="card">Selling costs<b>${fmt(sum('sellCost'))}</b></div>
+    <div class="card">Tax (sales &amp; defined benefit income)<b>${fmt(sum('tax'))}</b></div>
+    <div class="card">Assets at year ${last.year}<b>${fmt(last.assets)}</b></div>
+    <div class="card${stop && stop.key === 'inv' ? ' alert' : ''}">Investments at year ${last.year}<b>${fmt(last.inv)}</b></div>
+    <div class="card${stop && stop.key === 'radRefundable' ? ' alert' : ''}">Refundable RAD at year ${last.year}<b>${fmt(last.radRefundable)}</b></div>`;
+  $('warnings').textContent = stop
+    ? `Simulation stopped in year ${stop.year}: the ${stop.account} balance went negative (${fmt(stop.balance)}).` : '';
+
+  await draw('c1', chartDef('Total remaining assets', labels, [
+    { type: 'line', data: rows.map(r => r.assets) }, { type: 'line', data: rows.map(r => r.inv) },
+    { type: 'line', data: rows.map(r => r.homeValue) }, { type: 'line', data: rows.map(r => r.radRefundable) }], 'Dollars'));
+  await draw('c2', chartDef('RAD outstanding', labels, [{ type: 'bar', data: rows.map(r => r.radOutstanding) }], 'Dollars'));
+  await draw('c3', chartDef('Total outgoing costs', labels, [{ type: 'bar', data: rows.map(r => r.totalCost) }], 'Dollars'));
+  await draw('c5', chartDef('Tax paid', labels, [{ type: 'bar', data: rows.map(r => r.tax) }], 'Dollars'));
+  await draw('c4', chartDef('Investments balance', labels, [{ type: 'line', data: rows.map(r => r.inv) }], 'Dollars'));
+
+  const byYear = new Map();
+  events.forEach(e => byYear.set(e.year, [...(byYear.get(e.year) || []), e.text.replace(/[:#;]/g, '')]));
+  const tl = 'timeline\n    title Key events\n' +
+    [...byYear].map(([y, t]) => `    Year ${y} : ${t.join(' : ')}`).join('\n');
+  await draw('timeline', tl);
+
+  const br = bridgeRows(rows);
+  $('bridge').innerHTML = '<thead><tr>' + bridgeCols.map(c => `<th>${c[0]}</th>`).join('') + '</tr></thead><tbody>' +
+    `<tr><td>0 (entry)</td><td></td><td></td><td></td><td></td><td></td><td></td><td>${fmt(rows[0].assets)}</td><td></td></tr>` +
+    br.map(r => '<tr>' + bridgeCols.map(c => `<td>${c[1] === 'year' ? r.year : fmt(r[c[1]])}</td>`).join('') + '</tr>').join('') + '</tbody>';
+
+  $('table').innerHTML = '<thead><tr>' + cols.map(c => `<th>${c[0]}</th>`).join('') + '</tr></thead><tbody>' +
+    rows.map(r => `<tr class="${r.stopped ? 'stopped' : ''}">` + cols.map(c => {
+      const bad = r.stopped === c[1] ? 'culprit' : (typeof r[c[1]] === 'number' && r[c[1]] < -0.5 ? 'neg' : '');
+      return `<td class="${bad}">${c[2](r[c[1]])}</td>`;
+    }).join('') + '</tr>').join('') + '</tbody>';
+}
+
+const paramEls = [...document.querySelectorAll('input[type=number], select')];
+const labelOf = el => el.closest('label').firstChild.textContent.trim();
+const status = msg => { $('status').textContent = msg; };
+const STORAGE_KEY = 'agedCareSimulator.params';
+
+// sets known parameters from an object, ignoring unknown keys and invalid values; returns how many were applied
+function applyParams(params) {
+  let applied = 0;
+  for (const el of paramEls) {
+    if (!(el.id in params)) continue;
+    const v = params[el.id];
+    if (el.tagName === 'SELECT') {
+      if (![...el.options].some(o => o.value === v)) continue;
+    } else if (typeof v !== 'number' || !Number.isFinite(v)) continue;
+    el.value = v;
+    applied++;
+  }
+  return applied;
+}
+
+const currentParams = () => Object.fromEntries(paramEls.map(el => [el.id, el.tagName === 'SELECT' ? el.value : +el.value]));
+
+function saveParams() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(currentParams())); } catch (e) { /* storage unavailable */ }
+}
+
+try {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+  if (saved && typeof saved === 'object') applyParams(saved);
+} catch (e) { /* ignore corrupt or unavailable storage */ }
+
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+const csvCell = v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v;
+
+$('dlCsv').addEventListener('click', () => {
+  const c = [...cols.map(([h, k]) => [h, k]), ...extraCsvCols];
+  const lines = [c.map(x => csvCell(x[0])).join(',')].concat(
+    current.rows.map(r => c.map(x => Math.round(r[x[1]] * 100) / 100).join(',')));
+  download('aged-care-results.csv', lines.join('\n') + '\n', 'text/csv');
+});
+
+$('dlJson').addEventListener('click', () => {
+  const params = currentParams();
+  download('aged-care-parameters.json', JSON.stringify({ version: 1, params }, null, 2) + '\n', 'application/json');
+});
+
+$('upJson').addEventListener('click', () => $('upFile').click());
+$('upFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const params = data && data.params;
+    if (!params || typeof params !== 'object') throw new Error('no "params" object found');
+    const applied = applyParams(params);
+    saveParams();
+    status(`Loaded ${applied} of ${paramEls.length} parameters from ${file.name}.`);
+    render();
+  } catch (err) { status('Could not load parameters: ' + err.message); }
+});
+
+// markdown table of one balance: opening, credits, debits, closing, with a year-by-year reconciliation
+function ledger(title, note, spec, rows) {
+  const heads = ['Year', 'Opening', ...spec.credits.map(c => '+ ' + c[0]), ...spec.debits.map(d => '- ' + d[0]), 'Closing'];
+  const row = cells => '| ' + cells.join(' | ') + ' |';
+  const body = rows.slice(1).map(r => row([r.year, fmt(r[spec.open]), ...spec.credits.map(c => fmt(r[c[1]])),
+    ...spec.debits.map(d => fmt(r[d[1]])), fmt(r[spec.close])]));
+  return ['### ' + title, '', note, '', row(heads), row(heads.map(() => '---')),
+    row(['0 (initial)', '', ...spec.credits.map(() => ''), ...spec.debits.map(() => ''), fmt(rows[0][spec.close])]), ...body, ''];
+}
+
+// accounting journal: every transaction in the order it happens, the accounts it hits and the running balances it affects
+function journal(rows) {
+  const bal = { inv: rows[0].inv, rad: rows[0].radRefundable, home: rows[0].homeValue, out: rows[0].radOutstanding };
+  const row = cells => '| ' + cells.join(' | ') + ' |';
+  const heads = ['Ref', 'Year', 'Transaction', 'Debit', 'Credit', 'Amount', 'Investments', 'Refundable RAD', 'Home', 'RAD outstanding'];
+  const lines = [];
+  let n = 0;
+  const balCells = () => [fmt(bal.inv), fmt(bal.rad), fmt(bal.home), fmt(bal.out)];
+  // effect: changes to the four balances, e.g. { inv: -x, rad: +x, out: -x }
+  const post = (year, text, dr, cr, amount, effect) => {
+    if (!(Math.abs(amount) >= 0.5)) return;
+    Object.keys(effect).forEach(k => { bal[k] += effect[k]; });
+    lines.push(row(['J' + String(++n).padStart(3, '0'), year, text, dr, cr, fmt(amount), ...balCells()]));
+  };
+  lines.push(row(['', 0, 'Opening balances on entry', '', '', '', ...balCells()]));
+
+  for (const r of rows.slice(1)) {
+    const y = r.year;
+    post(y, 'Sale of home', 'Investments', 'Home', r.houseProceeds, { inv: r.houseProceeds, home: -r.houseProceeds });
+    post(y, 'Selling costs on home sale', 'Selling costs', 'Investments', r.sellCost, { inv: -r.sellCost });
+    post(y, 'RAD topped up to the maximum from house sale money', 'Refundable RAD', 'Investments', r.radBump, { inv: -r.radBump, rad: r.radBump, out: -r.radBump });
+    post(y, 'Tax on investments sold for RAD top-up', 'Tax on sales', 'Investments', r.bumpTax, { inv: -r.bumpTax });
+    post(y, 'Retention deducted from RAD', 'Retention expense', 'Refundable RAD', r.retention, { rad: -r.retention, out: r.retention });
+    [['Basic daily fee', 'radBasic'], ['Hotelling daily fee', 'radHotel'], ['Higher Every Day Living Fee (EDLF)', 'radEdlf'], ['NCCC daily fee', 'radNccc'], ['DAP daily fee', 'radDap']].forEach(([t, k]) =>
+      post(y, t + ' drawn from RAD', t + ' expense', 'Refundable RAD', r[k], { rad: -r[k], out: r[k] }));
+    post(y, 'Investment income', 'Investments', 'Investment income', r.interest, { inv: r.interest });
+    post(y, 'Defined benefit income', 'Investments', 'Defined benefit income', r.dbIncome, { inv: r.dbIncome });
+    post(y, 'Tax on defined benefit income', 'Tax', 'Investments', r.dbTax, { inv: -r.dbTax });
+    [['Basic daily fee', 'invBasic'], ['Hotelling daily fee', 'invHotel'], ['Higher Every Day Living Fee (EDLF)', 'invEdlf'], ['NCCC daily fee', 'invNccc'], ['DAP daily fee', 'invDap'],
+      ['Non-housing expenses', 'livingExp'], ['Housing expenses', 'housingExp']].forEach(([t, k]) =>
+      post(y, t + ' paid from investments', t.toLowerCase().includes('fee') ? t + ' expense' : t, 'Investments', r[k], { inv: -r[k] }));
+    post(y, 'Tax on investments sold to pay fees and expenses', 'Tax on sales', 'Investments', r.feeTax, { inv: -r.feeTax });
+    post(y, 'RAD topped up to the maximum after fees', 'Refundable RAD', 'Investments', r.radRefill, { inv: -r.radRefill, rad: r.radRefill, out: -r.radRefill });
+    post(y, 'Tax on investments sold for RAD top-up', 'Tax on sales', 'Investments', r.refillTax, { inv: -r.refillTax });
+    post(y, 'Home value growth', 'Home', 'Home revaluation', r.homeGrowth, { home: r.homeGrowth });
+    lines.push(row(['', y, '**Year-end balances**', '', '', '', ...[r.inv, r.radRefundable, r.homeValue, r.radOutstanding].map((v, i) => '**' + fmt(v) + (r.stopped === ['inv', 'radRefundable', 'homeValue', 'radOutstanding'][i] ? ' (NEGATIVE)' : '') + '**')]));
+  }
+  return [
+    '## Accounting journal', '',
+    'Each transaction is listed in the order it happens, with the accounts debited and credited and the running balance of each tracked balance after it. Refundable RAD and RAD outstanding move in opposite directions because the RAD outstanding is the room max RAD less the refundable RAD.', '',
+    row(heads), row(heads.map(() => '---')), ...lines, ''
+  ];
+}
+
+function ledgers(rows) {
+  const inv = { open: 'invOpen', close: 'inv',
+    credits: [['House sale proceeds', 'houseProceeds'], ['Investment income', 'interest'], ['Defined benefit income', 'dbIncome']],
+    debits: [['Selling costs', 'sellCost'], ['RAD top-up on house sale', 'radBump'], ['RAD annual top-up after fees', 'radRefill'], ['Tax on RAD top-up sales', 'radTax'], ['Tax on defined benefit income', 'dbTax'], ['Basic daily fee', 'invBasic'], ['Hotelling daily fee', 'invHotel'], ['Higher Every Day Living Fee (EDLF)', 'invEdlf'],
+      ['NCCC daily fee', 'invNccc'], ['DAP daily fee', 'invDap'], ['Non-housing expenses', 'livingExp'], ['Housing expenses', 'housingExp'], ['Tax on fee sales', 'feeTax']] };
+  const rad = { open: 'radOpen', close: 'radRefundable',
+    credits: [['RAD top-up on house sale', 'radBump'], ['RAD annual top-up after fees', 'radRefill']],
+    debits: [['Retention', 'retention'], ['Basic daily fee', 'radBasic'], ['Hotelling daily fee', 'radHotel'], ['Higher Every Day Living Fee (EDLF)', 'radEdlf'], ['NCCC daily fee', 'radNccc'], ['DAP daily fee', 'radDap']] };
+  const home = { open: 'homeOpen', close: 'homeValue', credits: [['Growth', 'homeGrowth']], debits: [['Sold', 'homeSold']] };
+  const out = { open: 'radOutOpen', close: 'radOutstanding', credits: [['Retention', 'retention'], ['Daily fees drawn from RAD', 'radDebit']],
+    debits: [['RAD top-up on house sale', 'radBump'], ['RAD annual top-up after fees', 'radRefill']] };
+  const costs = [['Basic daily fee', 'basic'], ['Hotelling daily fee', 'hotel'], ['Higher Every Day Living Fee (EDLF)', 'edlf'], ['NCCC daily fee', 'nccc'], ['DAP daily fee', 'dap'], ['Retention', 'retention'], ['Selling costs', 'sellCost'],
+    ['Non-housing expenses', 'livingExp'], ['Housing expenses', 'housingExp']];
+  const row = cells => '| ' + cells.join(' | ') + ' |';
+  const costHeads = ['Year', ...costs.map(c => c[0]), 'Total outgoing costs', 'Daily fees paid from RAD', 'Paid from investments', 'Deducted as retention', 'Deducted from sale', 'Tax (not a cost)'];
+  const assetHeads = ['Year', 'Home', 'Investments', 'Refundable RAD', 'Total assets'];
+  return [
+    '## Balance breakdowns', '',
+    'Each table reconciles year by year: Opening + credits - debits = Closing. Tax arises on investments sold and on the defined benefit income.', '',
+    ...ledger('Investments balance',
+      'Fees and expenses not covered by the RAD are paid by selling investments, grossed up for tax. Debits for fees and expenses are the amounts due from investments.', inv, rows),
+    ...ledger('Refundable RAD balance', 'Retention is deducted first, then the daily fees are debited according to the "Fees debited from" setting.', rad, rows),
+    ...ledger('Home value', 'The home grows until it is sold at the start of the sale year.', home, rows),
+    ...ledger('RAD outstanding', 'Room max RAD less the refundable RAD balance. The DAP is charged on the opening balance for the year, after any house sale top-up.', out, rows),
+    '### Total assets', '', row(assetHeads), row(assetHeads.map(() => '---')),
+    ...rows.map(r => row([r.year, fmt(r.homeValue), fmt(r.inv), fmt(r.radRefundable), fmt(r.assets)])), '',
+    '### Outgoing costs and how they were funded', '', row(costHeads), row(costHeads.map(() => '---')),
+    ...rows.slice(1).map(r => row([r.year, ...costs.map(c => fmt(r[c[1]])), fmt(r.totalCost), fmt(r.radDebit), fmt(r.feesFromInv),
+      fmt(r.retention), fmt(r.sellCost), fmt(r.tax)])), ''
+  ];
+}
+
+$('dlMd').addEventListener('click', () => {
+  const { p, rows, events } = current;
+  const sum = k => rows.reduce((a, r) => a + r[k], 0);
+  const last = rows[rows.length - 1];
+  const row = cells => '| ' + cells.join(' | ') + ' |';
+  const feeSel = $('feeSource');
+  const md = [
+    '# Aged care cost simulation (NSW)', '',
+    `Generated ${new Date().toISOString().slice(0, 10)}. Simulated over ${p.horizon} years.`, '',
+    '## Parameters', '', row(['Parameter', 'Value']), row(['---', '---']),
+    ...paramEls.map(el => row([labelOf(el), el.tagName === 'SELECT' ? feeSel.selectedOptions[0].text : el.value])), '',
+    '## Summary', '',
+    `- Total outgoing costs (excluding tax): ${fmt(sum('totalCost'))}`,
+    `- Daily fees (basic, hotelling, EDLF, NCCC, DAP): ${fmt(sum('basic') + sum('hotel') + sum('edlf') + sum('nccc') + sum('dap'))}`,
+    `- Retention paid: ${fmt(sum('retention'))}`,
+    `- Living and housing expenses: ${fmt(sum('livingExp') + sum('housingExp'))}`,
+    `- Selling costs: ${fmt(sum('sellCost'))}`,
+    `- Tax (investment sales and defined benefit income): ${fmt(sum('tax'))}`,
+    `- Total assets at year ${last.year}: ${fmt(last.assets)}`,
+    `- Investments at year ${last.year}: ${fmt(last.inv)}`,
+    ...(current.stop ? ['', `**SIMULATION STOPPED in year ${current.stop.year}: the ${current.stop.account} balance went negative (${fmt(current.stop.balance)}).**`] : []), '',
+    '## Key events', '', ...events.map(e => `- Year ${e.year}: ${e.text}`), '',
+    '## Assets bridge', '',
+    'Closing assets = opening assets + investment income + defined benefit income + home growth - total outgoing costs - tax on sales. Total assets are the home, investments and refundable RAD.', '',
+    row(bridgeCols.map(c => c[0])), row(bridgeCols.map(() => '---')),
+    row(['0 (entry)', '', '', '', '', '', '', fmt(rows[0].assets), '']),
+    ...bridgeRows(rows).map(r => row(bridgeCols.map(c => c[1] === 'year' ? r.year : fmt(r[c[1]])))), '',
+    ...ledgers(rows),
+    ...journal(rows),
+    '## Yearly results', '',
+    row(cols.map(c => c[0])), row(cols.map(() => '---')),
+    ...rows.map(r => row(cols.map(c => r.stopped === c[1] ? '**' + c[2](r[c[1]]) + ' (NEGATIVE - simulation stopped)**' : c[2](r[c[1]])))), '',
+    '## Assumptions', '',
+    ...[...document.querySelectorAll('.assump li')].map(li => '- ' + li.textContent.trim()), ''
+  ].join('\n');
+  download('aged-care-report.md', md, 'text/markdown');
+});
+
+$('resetParams').addEventListener('click', () => {
+  paramEls.forEach(el => {
+    if (el.tagName === 'SELECT') el.selectedIndex = Math.max([...el.options].findIndex(o => o.defaultSelected), 0);
+    else el.value = el.defaultValue;
+  });
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* storage unavailable */ }
+  status('Parameters reset to defaults.');
+  render();
+});
+
+paramEls.forEach(el => el.addEventListener('input', () => { saveParams(); render(); }));
+render();
+</script>
+</body>
+</html>
